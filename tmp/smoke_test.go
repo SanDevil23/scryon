@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/sandevil23/scryon/pkg/config"
 	"github.com/sandevil23/scryon/pkg/logger"
+	"github.com/sandevil23/scryon/pkg/config"
 )
 
 func main() {
