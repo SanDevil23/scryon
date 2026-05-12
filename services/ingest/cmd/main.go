@@ -75,8 +75,7 @@ func main(){
 	// gRPC Server
 	grpcServer := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			// TODO:
-			// loggingInterceptor(log),			/
+			loggingInterceptor(log),			
 		),
 	)
 
@@ -110,4 +109,19 @@ func main(){
 	log.Info("shutting down gRPC server")
 	grpcServer.GracefulStop()
 	log.Info("ingest service stopped")
+}
+
+// loggingInterceptor logs every unary RPC call.
+func loggingInterceptor(log *slog.Logger) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		start:=time.Now()
+		resp, err := handler(ctx, req)
+		log.Info("rpc",
+			"method", info.FullMethod,
+			"duration_ms", time.Since(start).Milliseconds(),
+			"err", err,
+		)
+
+		return resp, err
+	}
 }
