@@ -1,0 +1,72 @@
+syntax = "proto3";
+
+package ingest.v1;
+
+option go_package = "github.com/sandevil23/scryon/proto/ingest/v1;ingestv1";
+
+import "google/protobuf/timestamp.proto";
+
+message PushMetricsRequest{
+    string tenant_id = 1;
+    repeated Metric metrics = 2;
+}
+
+message PushMetricsResponse {
+    uint32 accepted = 1;
+    uint32 rejected = 2;
+}
+
+message Metric {
+    string name                         = 1;
+    map<string,string> labels           = 2;
+    double value                        = 3;
+    google.protobuf.Timestamp timestamp = 4;
+}
+
+message PushLogsRequest {
+    string tenant_id        = 1;
+    repeated LogEntry logs  = 2;
+}
+
+message PushLogsResponse {
+    uint32 accepted = 1;
+    uint32 rejected = 2;
+}
+
+
+message LogEntry {
+  google.protobuf.Timestamp timestamp = 1;
+  string level                        = 2;
+  string message                      = 3;
+  map<string, string> attributes      = 4;
+  string trace_id                     = 5;
+  string span_id                      = 6;
+}
+
+message PushTracesRequest {
+  string tenant_id      = 1;
+  repeated Span spans   = 2;
+}
+
+message PushTracesResponse {
+  uint32 accepted = 1;
+  uint32 rejected = 2;
+}
+
+message Span {
+  string trace_id                      = 1;
+  string span_id                       = 2;
+  string parent_span_id                = 3;
+  string name                          = 4;
+  string service_name                  = 5;
+  google.protobuf.Timestamp start_time = 6;
+  google.protobuf.Timestamp end_time   = 7;
+  map<string, string> attributes       = 8;
+}
+
+
+service IngestService {
+  rpc PushMetrics(PushMetricsRequest) returns (PushMetricsResponse);
+  rpc PushLogs(PushLogsRequest) returns (PushLogsResponse);
+  rpc PushTraces(PushTracesRequest) returns (PushTracesResponse);
+}
