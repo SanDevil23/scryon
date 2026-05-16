@@ -65,3 +65,13 @@ proto-push:
 .PHONY: proto-clean
 proto-clean:
 	rm -rf gen/
+
+# -----------------------------------------------------------------------------
+# Add a Makefile check to catch the "forgot to regenerate" problem:
+# Run this in CI — it regenerates and fails if the output differs from what's committed. Best of both worlds.
+# proto-check: Fail if generated files are out of sync with proto sources
+# -----------------------------------------------------------------------------
+proto-check:
+	buf generate proto/ingest/v1
+	git diff --exit-code gen/
+	@echo "✅ generated files are up to date"
