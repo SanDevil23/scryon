@@ -5,10 +5,13 @@ import (
 	"testing"
 	"time"
 
+	"log/slog"
+
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"github.com/sandevil23/scryon/services/ingest/internal/handler"
-	"log/slog"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestPushMetrics_PublishesToNATS(t *testing.T) {
@@ -31,10 +34,10 @@ func TestPushMetrics_PublishesToNATS(t *testing.T) {
 	log := slog.Default()
 	h := handler.NewIngestHanlder(js, "TELEMETRY_TEST", log)
 
-	resp, err := h.PushMetrics(ctx, &handler.PushMetricsRequest{
-		TenantID: "test-tenant",
-		Metrics: []handler.Metric{
-			{Name: "cpu_usage", Value: 72.5, Timestamp: time.Now()},
+	resp, err := h.PushMetrics(ctx, &ingestv1.PushMetricsRequest{
+		TenantId: "test-tenant",
+		Metrics: []*ingestv1.Metric{
+			{Name: "cpu_usage", Value: 72.5, Timestamp: timestamppb.Now()},
 		},
 	})
 
