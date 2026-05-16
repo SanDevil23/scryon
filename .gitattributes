@@ -1,0 +1,2 @@
+# Collapse generated protobuf files in GitHub PR diffs
+gen/go/**/*.go linguist-generated=true
