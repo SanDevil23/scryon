@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
+	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
@@ -26,32 +27,15 @@ func NewIngestHanlder(js jetstream.JetStream, strmName string, logger *slog.Logg
 		slog: logger,
 	}
 }
-// Metric
-type Metric struct {
-	Name		string				`json:"metric"`
-	Labels		map[string]string	`json:"Labels"`
-	Value 		float64				`json:"value"`
-	Timestamp	time.Time			`json:"time"`
-}
-// PushMetricRequest
-type PushMetricsRequest struct {
-	TenantID 	string 		`json:"tenant_id"`
-	Metrics		[]Metric	`json:"metrics"`
-}
-// PushMetricResponse
-type PushMetricsResponse struct {
-	Accepted uint32 `json:"accepted"`
-	Rejected uint32 `json:"rejected"`
-}
 
 // PushMetrics validates and publishes a batch of metrics to NATS.
-func (in *IngestHandler) PushMetrics(ctx context.Context, req *PushMetricsRequest)(*PushMetricsResponse, error){
-	if req.TenantID == "" {
+func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetricsRequest)(*ingestv1.PushMetricsResponse, error){
+	if req.TenantId == "" {
 		return nil, status.Error(codes.InvalidArgument, "tenant_id is empty")
 	}
 
 	if len(req.Metrics) == 0 {
-		return &PushMetricsResponse{
+		return &ingestv1.PushMetricsResponse{
 			Accepted: 0,
 			Rejected: 0,
 		}, nil
@@ -59,7 +43,7 @@ func (in *IngestHandler) PushMetrics(ctx context.Context, req *PushMetricsReques
 
 	// creating event to push into jetstream
 	event := map[string]any{
-		"tenant_id":   req.TenantID,
+		"tenant_id":   req.TenantId,
 		"metrics":     req.Metrics,
 		"received_at": time.Now().UTC(),
 	}
@@ -69,17 +53,17 @@ func (in *IngestHandler) PushMetrics(ctx context.Context, req *PushMetricsReques
 		return nil, status.Error(codes.Internal, "failed to marshal event")
 	}
 
-	subject := fmt.Sprintf("telemetry.metrics.%s", req.TenantID)
+	subject := fmt.Sprintf("telemetry.metrics.%s", req.TenantId)
 	if _, err := in.jets.Publish(ctx, subject, data); err!=nil{
 		in.slog.Error("failed to publish to NATS", "err", err, "subject", subject)
 		return nil, status.Error(codes.Internal, "failed to publish metrics")
 	}
 
 	in.slog.Info("metrics published to NATS",
-		"tenant", req.TenantID,
+		"tenant", req.TenantId,
 		"count", len(req.Metrics),
 		"subject", subject,
 	)
 
-	return &PushMetricsResponse{Accepted: uint32(len(req.Metrics))}, nil
+	return &ingestv1.PushMetricsResponse{Accepted: uint32(len(req.Metrics))}, nil
 }
