@@ -18,6 +18,7 @@ type IngestHandler struct {
 	jets		jetstream.JetStream
 	streamName 	string
 	slog 		*slog.Logger
+	ingestv1.UnimplementedIngestServiceServer		// for suppressing unimplemented methods and forward compatibility
 }
 
 func NewIngestHanlder(js jetstream.JetStream, strmName string, logger *slog.Logger) *IngestHandler {
