@@ -11,6 +11,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"github.com/sandevil23/scryon/pkg/config"
 	"github.com/sandevil23/scryon/pkg/logger"
 	"github.com/sandevil23/scryon/services/ingest/internal/handler"
@@ -79,9 +80,8 @@ func main(){
 		),
 	)
 
-	// Register handler -- manually for now
-	h := handler.NewIngestHanlder(jets, "TELEMETRY", log)
-	_ = h // silences unused warning until we register the proto service
+	srv := handler.NewIngestHanlder(jets, "TELEMETRY", log)
+	ingestv1.RegisterIngestServiceServer(grpcServer, srv)
 
 	reflection.Register(grpcServer)
 
