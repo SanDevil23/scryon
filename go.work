@@ -6,4 +6,5 @@ use (
 	./pkg/logger
 	./pkg/middleware
 	./services/ingest
+	./services/processor
 )
