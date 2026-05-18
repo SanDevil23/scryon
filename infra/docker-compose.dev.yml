@@ -9,6 +9,19 @@ services:
       - "8222:8222"       # HTTP monitoring
     volumes:
       - nats_data:/data
+
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.99.0
+    command: 
+      - --storageDataPath=/storage
+      - --httpListenAddr=:8428
+      - --retentionPeriod=30d
+    ports:
+      - "8428:8428"
+    volumes:
+      - victoria_data:/storage
+
 volumes:
   nats_data:
+  victoria_data:
   
