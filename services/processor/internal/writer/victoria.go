@@ -42,10 +42,33 @@ func (w *VictoriaWriter) Writer(ctx context.Context, tenantId string, metrics []
 		return nil
 	}
 
-	var buffer bytes.Buffer
+	var buffer bytes.Buffer						// 1 Byte = 8 bits
 	for _, m := range metrics {
 		buffer.WriteString(formatLine(tenantId, m))
+		buffer.WriteByte('\n')
 	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, w.endpoint, &buffer)
+	if err != nil {
+		return fmt.Errorf("build request: %w", err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
+
+	resp, err := w.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("http post: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected status from VictoriaMetrics: %d", resp.StatusCode)
+	}
+
+	w.log.Info("metrics written to VictoriaMetrics",
+		"tenant", tenantId,
+		"count", len(metrics),
+	)
 
 	return nil
 }
