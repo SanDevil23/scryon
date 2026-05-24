@@ -37,7 +37,7 @@ type MetricLine struct {
 }
 
 // Write sends a batch of metrics to VictoriaMetrics
-func (w *VictoriaWriter) Writer(ctx context.Context, tenantId string, metrics []MetricLine) error {
+func (w *VictoriaWriter) Write(ctx context.Context, tenantId string, metrics []MetricLine) error {
 	if len(metrics) == 0 {
 		return nil
 	}
