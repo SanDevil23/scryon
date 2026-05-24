@@ -13,19 +13,18 @@ import (
 // Consumer pulls messages from NATS JetStream and routes them
 // to the appropriate backend writer.
 type Consumer struct {
-	jets 		jetstream.JetStream
-	vWriter		*writer.VictoriaWriter
-	log			*slog.Logger
-	workers 	int
+	jets    jetstream.JetStream
+	vWriter *writer.VictoriaWriter
+	log     *slog.Logger
+	workers int
 }
 
-
 func New(js jetstream.JetStream, wr *writer.VictoriaWriter, log *slog.Logger, workers int) *Consumer {
-	return &Consumer {
-		jets: 			js,
-		vWriter:		wr,
-		log: 			log,
-		workers: 		workers,
+	return &Consumer{
+		jets:    js,
+		vWriter: wr,
+		log:     log,
+		workers: workers,
 	}
 }
 
@@ -37,17 +36,72 @@ func (c *Consumer) Start(ctx context.Context) error {
 			"telemetry.metrics.>",
 			"telemetry.logs.>",
 			"telemetry.traces.>",
-	},
-	AckPolicy: jetstream.AckExplicitPolicy,
-	MaxDeliver: 5,
-	AckWait: 30 * time.Second,
+		},
+		AckPolicy:  jetstream.AckExplicitPolicy,
+		MaxDeliver: 5,
+		AckWait:    30 * time.Second,
 	})
-	if err!=nil {
+	if err != nil {
 		return err
 	}
 
 	msgCh := make(chan jetstream.Msg, c.workers*4)
 
+	// dispatcher
+	go func() {
+		iter, err := consumer.Messages()
+		if err != nil {
+			c.log.Error("failed to start message iterator", "err", err)
+			return
+		}
+
+		defer iter.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				msg, err := iter.Next()
+				if err != nil {
+					return
+				}
+				msgCh <- msg
+			}
+		}
+	}()
+
+	// worker pool
+	for i := 0; i < c.workers; i++ {
+		go func() {
+			for msg := range msgCh {
+				if err := c.process(ctx, msg); err != nil {
+					c.log.Error("processing failed",
+						"err", err,
+						"subject", msg.Subject(),
+					)
+
+					// if error : negative acknowledge -> re-deliver the message
+					err := msg.Nak()
+					if err != nil {
+						c.log.Error("negative ack failed",
+							"err", err,
+							"subject", msg.Subject(),
+						)
+					}
+				} else {
+					// acknowledge the message
+					err := msg.Ack()
+					if err != nil {
+						c.log.Error("acknowledgement failed",
+							"err", err,
+							"subject", msg.Subject(),
+						)
+					}
+				}
+			}
+		}()
+	}
 	return nil
 }
 
@@ -56,7 +110,7 @@ func (c *Consumer) process(ctx context.Context, msg jetstream.Msg) error {
 	sub := msg.Subject()
 	c.log.Debug("processing message", "subject", sub)
 
-	switch{
+	switch {
 	case len(sub) > 19 && sub[:19] == "telemetry.metrics.":
 		return c.handleMetrics(ctx, msg.Data())
 	default:
@@ -82,16 +136,16 @@ type metricEntry struct {
 
 func (c *Consumer) handleMetrics(ctx context.Context, data []byte) error {
 	var event metricEvent
-	if err:=json.Unmarshal(data, &event); err!=nil {
+	if err := json.Unmarshal(data, &event); err != nil {
 		return err
 	}
 
 	lines := make([]writer.MetricLine, 0, len(event.Metrics))
 	for _, m := range event.Metrics {
 		lines = append(lines, writer.MetricLine{
-			Name: m.Name,
-			Labels: m.Labels,
-			Value: m.Value,
+			Name:      m.Name,
+			Labels:    m.Labels,
+			Value:     m.Value,
 			Timestamp: m.Timestamp,
 		})
 	}
