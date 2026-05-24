@@ -2,7 +2,9 @@ package consumer
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/sandevil23/scryon/services/processor/internal/writer"
@@ -27,6 +29,28 @@ func New(js jetstream.JetStream, wr *writer.VictoriaWriter, log *slog.Logger, wo
 	}
 }
 
+func (c *Consumer) Start(ctx context.Context) error {
+	consumer, err := c.jets.CreateOrUpdateConsumer(ctx, "TELEMETRY", jetstream.ConsumerConfig{
+		Name:    "processor",
+		Durable: "processor",
+		FilterSubjects: []string{
+			"telemetry.metrics.>",
+			"telemetry.logs.>",
+			"telemetry.traces.>",
+	},
+	AckPolicy: jetstream.AckExplicitPolicy,
+	MaxDeliver: 5,
+	AckWait: 30 * time.Second,
+	})
+	if err!=nil {
+		return err
+	}
+
+	msgCh := make(chan jetstream.Msg, c.workers*4)
+
+	return nil
+}
+
 // process routes a message to the correct writer based on subject.
 func (c *Consumer) process(ctx context.Context, msg jetstream.Msg) error {
 	sub := msg.Subject()
@@ -39,4 +63,38 @@ func (c *Consumer) process(ctx context.Context, msg jetstream.Msg) error {
 		c.log.Debug("no handler for subject, skipping", "subject", sub)
 		return nil
 	}
+}
+
+// --- metric event shape published by the ingest service ---
+
+type metricEvent struct {
+	TenantID   string        `json:"tenant_id"`
+	Metrics    []metricEntry `json:"metrics"`
+	ReceivedAt time.Time     `json:"received_at"`
+}
+
+type metricEntry struct {
+	Name      string            `json:"name"`
+	Labels    map[string]string `json:"labels"`
+	Value     float64           `json:"value"`
+	Timestamp time.Time         `json:"timestamp"`
+}
+
+func (c *Consumer) handleMetrics(ctx context.Context, data []byte) error {
+	var event metricEvent
+	if err:=json.Unmarshal(data, &event); err!=nil {
+		return err
+	}
+
+	lines := make([]writer.MetricLine, 0, len(event.Metrics))
+	for _, m := range event.Metrics {
+		lines = append(lines, writer.MetricLine{
+			Name: m.Name,
+			Labels: m.Labels,
+			Value: m.Value,
+			Timestamp: m.Timestamp,
+		})
+	}
+
+	return c.vWriter.Write(ctx, event.TenantID, lines)
 }
