@@ -17,15 +17,17 @@ import (
 type Consumer struct {
 	jets    jetstream.JetStream
 	vWriter *writer.VictoriaWriter
+	lw    	*writer.LokiWriter
 	log     *slog.Logger
 	workers int
 }
 
-func New(js jetstream.JetStream, wr *writer.VictoriaWriter, log *slog.Logger, workers int) *Consumer {
+func New(js jetstream.JetStream, wr *writer.VictoriaWriter, loki *writer.LokiWriter, log *slog.Logger, workers int) *Consumer {
 	return &Consumer{
-		jets:    js,
+		jets: js,
 		vWriter: wr,
-		log:     log,
+		lw: loki,
+		log: log,
 		workers: workers,
 	}
 }
@@ -186,6 +188,21 @@ type metricEntry struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
+type logEvent struct {
+	TenantID   string     `json:"tenant_id"`
+	Logs       []logEntry `json:"logs"`
+	ReceivedAt time.Time  `json:"received_at"`
+}
+
+type logEntry struct {
+	Timestamp  time.Time         `json:"timestamp"`
+	Level      string            `json:"level"`
+	Message    string            `json:"message"`
+	Attributes map[string]string `json:"attributes"`
+	TraceID    string            `json:"trace_id"`
+	SpanID     string            `json:"span_id"`
+}
+
 func (c *Consumer) handleMetrics(ctx context.Context, data []byte) error {
 	var event metricEvent
 	if err := json.Unmarshal(data, &event); err != nil {
@@ -206,9 +223,26 @@ func (c *Consumer) handleMetrics(ctx context.Context, data []byte) error {
 }
 
 
-func (c *Consumer) handleLogs(_ context.Context, _ []byte) error {
-	c.log.Debug("logs handler not yet implemented")
-	return nil
+func (c *Consumer) handleLogs(ctx context.Context, data []byte) error {
+	var event logEvent
+	if err:=json.Unmarshal(data, &event); err!=nil{
+		return err
+	}
+
+	lines := make([]writer.LogLine, 0, len(event.Logs))
+
+	for _, l := range event.Logs {
+		lines = append(lines, writer.LogLine{
+			Timestamp:  l.Timestamp,
+			Level:      l.Level,
+			Message:    l.Message,
+			Attributes: l.Attributes,
+			TraceID:    l.TraceID,
+			SpanID:     l.SpanID,
+		})
+	}
+
+	return c.lw.Write(ctx, event.TenantID, lines)
 }
 
 func (c *Consumer) handleTraces(_ context.Context, _ []byte) error {

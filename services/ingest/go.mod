@@ -1,9 +1,12 @@
 module github.com/sandevil23/scryon/services/ingest
 
-go 1.26.1
+go 1.26.3
 
 require (
 	github.com/nats-io/nats.go v1.52.0
+	github.com/sandevil23/scryon/gen/go v0.0.0-20260603085128-4f1cffc6a304
+	github.com/sandevil23/scryon/pkg/config v0.0.0-20260603085128-4f1cffc6a304
+	github.com/sandevil23/scryon/pkg/logger v0.0.0-20260603085128-4f1cffc6a304
 	google.golang.org/grpc v1.81.1
 	google.golang.org/protobuf v1.36.11
 )
