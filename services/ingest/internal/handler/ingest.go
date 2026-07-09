@@ -68,3 +68,36 @@ func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetr
 
 	return &ingestv1.PushMetricsResponse{Accepted: uint32(len(req.Metrics))}, nil
 }
+
+func (in *IngestHandler) PushLogs(ctx context.Context, req *ingestv1.PushLogsRequest)(*ingestv1.PushLogsResponse, error){
+	if req.TenantId == ""{
+			return nil, status.Error(codes.InvalidArgument, "tenant_id is missing/required")
+	}
+	if len(req.Logs) == 0 {
+		return &ingestv1.PushLogsResponse{Accepted: 0}, nil
+	}
+
+	event := map[string]any{
+		"tenant_id": req.TenantId,
+		"logs": req.Logs,
+		"received_at": time.Now().UTC(),
+	}
+
+	data, err := json.Marshal(event)
+	if err!=nil {
+		return nil, status.Error(codes.Internal, "failed to marshal event")
+	}
+
+	subject := fmt.Sprintf("telemetry.logs.%s", req.TenantId)
+	if _, err := in.jets.Publish(ctx, subject, data); err!=nil {
+		in.slog.Error("failed to publish logs", "err", err, "subject", subject)
+		return nil, status.Error(codes.Internal, "failed to publish logs")
+	}
+
+	in.slog.Info("logs accepted",
+		"tenant", req.TenantId,
+		"count", len(req.Logs),
+	)
+
+	return &ingestv1.PushLogsResponse{Accepted: uint32(len(req.Logs))}, nil
+}
