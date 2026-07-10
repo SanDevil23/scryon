@@ -19,8 +19,8 @@ func main() {
 	cfg, _ := config.LoadBase("processor")
 	log := logger.New(cfg.LogLevel)
 
-	victoriaURL := getEnv("OBSP_VICTORIA_URL",
-		"http://localhost:8428/api/v1/import/prometheus")
+	lokiURL := getEnv("OBSP_LOKI_URL", "http://localhost:3100")
+	victoriaURL := getEnv("OBSP_VICTORIA_URL", "http://localhost:8428/api/v1/import/prometheus")
 
 	log.Info("starting processor service",
 		"nats", cfg.NATSUrl,
@@ -54,9 +54,9 @@ func main() {
 	}
 
 	// wire up dependencies
-
-	vw := writer.NewVictoriaWriter(victoriaURL, log)
-	c := consumer.New(js, vw, log, 4)
+	victoria := writer.NewVictoriaWriter(victoriaURL, log)
+	loki := writer.NewLokiWriter(lokiURL, log)
+	c := consumer.New(js, victoria, loki, log, 4)
 
 	log.Info("processor ready, consuming from NATS")
 	
