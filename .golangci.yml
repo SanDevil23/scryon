@@ -1,0 +1,44 @@
+run:
+  timeout: 5m
+  go: "1.26"
+
+linters:
+  enable:
+    - errcheck        # ensures errors are handled
+    - gosimple        # simplification suggestions
+    - govet           # reports suspicious constructs
+    - ineffassign     # detects unused assignments
+    - staticcheck     # comprehensive static analysis
+    - unused          # finds unused code
+    - gofmt           # enforces formatting
+    - goimports       # enforces import ordering
+    - misspell        # catches common misspellings
+    - godot           # checks comments end with a period
+    - noctx           # finds http calls without context
+    - bodyclose       # checks http response bodies are closed
+    - exhaustive      # checks switch exhaustiveness on enums
+    - gocritic        # opinionated but useful checks
+
+linters-settings:
+  errcheck:
+    check-blank: true
+  goimports:
+    local-prefixes: github.com/sandevil23/scryon
+  misspell:
+    locale: US
+  godot:
+    scope: declarations
+
+  issues:
+    exclude-rules:
+      # generated proto files — never lint these
+      - path: "gen/"
+        linters:
+          - all
+      # test files — relax some rules
+      - path: "_test\\.go"
+        linters:
+          - errcheck
+          - godot
+  max-issues-per-linter: 50
+  max-same-issues: 10
