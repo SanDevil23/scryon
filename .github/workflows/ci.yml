@@ -27,7 +27,7 @@ jobs:
       - name: Install buf
         uses: bufbuild/buf-setup-action@v1
         with:
-          version: "1.69"
+          version: "1.28.1"
 
       - name: Install protoc plugins
         run: |
