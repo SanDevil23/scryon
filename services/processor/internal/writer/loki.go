@@ -1,7 +1,9 @@
 package writer
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -34,6 +36,8 @@ type LogLine struct {
 	SpanID		string
 }
 
+// Write pushes a batch of log lines to Loki.
+// All lines are grouped under a single stream keyed by tenant + level.
 func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLine) error {
 	if len(lines) == 0 {
 		return nil
@@ -49,7 +53,9 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 	type lokiPush struct {
 		Streams []lokiStream `json:"streams"`
 	}
-
+	
+	// Group lines by level so each level is a separate Loki stream.
+	// This makes LogQL filtering by level efficient.
 	grouped := make(map[string][]lokiValue)
 	for _, l := range lines {
 		ts := l.Timestamp
@@ -73,6 +79,7 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 		})
 	}
 
+	// slice of loki stream
 	streams := make([]lokiStream, 0, len(grouped))
 	for lvl, values := range grouped {
 		streams = append(streams, lokiStream{
@@ -84,6 +91,39 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 			Values: values,
 		})
 	}
+
+	payload, err := json.Marshal(lokiPush{Streams: streams})
+	if err != nil {
+		return fmt.Errorf("marshal loki payload : %w", err)
+	}
+
+	req, err := http.NewRequestWithContext(
+		ctx, 
+		http.MethodPost,
+		lw.endpoint+"/loki/api/v1/push",
+		bytes.NewReader(payload),
+	)
+	if err != nil {
+		return fmt.Errorf("build loki request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := lw.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("loki push: %w", err)
+	}
+
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unexpected loki status: %d", resp.StatusCode)
+	}
+
+	lw.log.Info("logs written to Loki",
+		"tenant", tenantID,
+		"count", len(lines),
+	)
 
 	return nil
 }
