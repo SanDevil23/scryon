@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -16,6 +18,13 @@ import (
 )
 
 func main() {
+	if err := run(); err != nil {
+		slog.Error("fatal error", "err", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
 	cfg, _ := config.LoadBase("processor")
 	log := logger.New(cfg.LogLevel)
 
@@ -24,8 +33,8 @@ func main() {
 
 	log.Info("starting processor service",
 		"nats", cfg.NATSUrl,
-		"victoria", victoriaURL,)
-	
+		"victoria", victoriaURL)
+
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
@@ -39,18 +48,20 @@ func main() {
 		}),
 	)
 
-	if err!=nil {
-		log.Error("failed to connect to NATS", "err", err)
-		os.Exit(1)
+	if err != nil {
+		return fmt.Errorf("failed to connect to NATS: %w", err)
 	}
 
-	defer nc.Drain()
+	defer func() {
+		if err := nc.Drain(); err != nil {
+			log.Warn("NATS drain error", "err", err)
+		}
+	}()
 	log.Info("connected to NATS")
 
 	js, err := jetstream.New(nc)
 	if err != nil {
-		log.Error("failed to init JetStream", "err", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to init JetStream: %w", err)
 	}
 
 	// wire up dependencies
@@ -59,13 +70,14 @@ func main() {
 	c := consumer.New(js, victoria, loki, log, 4)
 
 	log.Info("processor ready, consuming from NATS")
-	
+
 	if err := c.Start(ctx); err != nil {
-		log.Error("consumer error", "err", err)
-		os.Exit(1)
+		return fmt.Errorf("consumer error: %w", err)
 	}
 
 	log.Info("processor stopped")
+
+	return nil
 }
 
 func getEnv(key, fallback string) string {

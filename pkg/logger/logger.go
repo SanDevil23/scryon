@@ -6,19 +6,18 @@ import (
 	"os"
 )
 
-
 type contextKey string
 
 const loggerKey contextKey = "logger"
 
 func New(level string) *slog.Logger {
 	var logLevel slog.Level
-	if err:=logLevel.UnmarshalText([]byte(level)); err!=nil {
+	if err := logLevel.UnmarshalText([]byte(level)); err != nil {
 		logLevel = slog.LevelInfo
 	}
 
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: logLevel,
+		Level:     logLevel,
 		AddSource: logLevel == slog.LevelDebug,
 	}))
 }

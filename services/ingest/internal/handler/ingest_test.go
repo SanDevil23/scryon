@@ -24,12 +24,16 @@ func TestPushMetrics_PublishesToNATS(t *testing.T) {
 	js, _ := jetstream.New(nc)
 	ctx := context.Background()
 
-	js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
+	_, err = js.CreateOrUpdateStream(ctx, jetstream.StreamConfig{
 		Name:     "TELEMETRY_TEST",
 		Subjects: []string{"telemetry.metrics.test.>"},
 		MaxAge:   1 * time.Minute,
 		Storage:  jetstream.MemoryStorage,
 	})
+
+	if err != nil {
+		t.Fatalf("failed to create test stream: %v", err)
+	}
 
 	log := slog.Default()
 	h := handler.NewIngestHanlder(js, "TELEMETRY_TEST", log)

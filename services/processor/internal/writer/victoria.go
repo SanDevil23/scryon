@@ -42,7 +42,7 @@ func (w *VictoriaWriter) Write(ctx context.Context, tenantId string, metrics []M
 		return nil
 	}
 
-	var buffer bytes.Buffer						// 1 Byte = 8 bits
+	var buffer bytes.Buffer // 1 Byte = 8 bits
 	for _, m := range metrics {
 		buffer.WriteString(formatLine(tenantId, m))
 		buffer.WriteByte('\n')
@@ -59,8 +59,11 @@ func (w *VictoriaWriter) Write(ctx context.Context, tenantId string, metrics []M
 		return fmt.Errorf("http post: %w", err)
 	}
 
-	defer resp.Body.Close()
-
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			w.log.Warn("failed to close response body", "err", err)
+		}
+	}()
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status from VictoriaMetrics: %d", resp.StatusCode)
 	}
@@ -81,7 +84,7 @@ func formatLine(tenantId string, metric MetricLine) string {
 	// always inject tenant labels for isolation
 	labels = append(labels, fmt.Sprintf(`tenant="%s"`, tenantId))
 
-	for k,v := range metric.Labels {
+	for k, v := range metric.Labels {
 		labels = append(labels, fmt.Sprintf(`%s="%s"`, k, v))
 	}
 

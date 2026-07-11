@@ -5,30 +5,29 @@ import (
 	"os"
 	"strconv"
 	"time"
-
 )
 
 type BaseConfig struct {
-	ServiceName 		string
-	GRPCPort			int
-	HTTPPort			int
-	LogLevel			string
-	TenantServiceAddr 	string
-	NATSUrl				string
-	OTELEndpoint		string
-	Environment			string
+	ServiceName       string
+	GRPCPort          int
+	HTTPPort          int
+	LogLevel          string
+	TenantServiceAddr string
+	NATSUrl           string
+	OTELEndpoint      string
+	Environment       string
 }
 
-func LoadBase(serviceName string) (BaseConfig, error){
+func LoadBase(serviceName string) (BaseConfig, error) {
 	return BaseConfig{
-		ServiceName: 		serviceName,
-		GRPCPort:          	mustInt("OBSP_GRPC_PORT", 50051),
-		HTTPPort:          	mustInt("OBSP_HTTP_PORT", 8080),
-		LogLevel:          	getEnv("OBSP_LOG_LEVEL", "info"),
-		TenantServiceAddr: 	getEnv("OBSP_TENANT_ADDR", "tenant:50051"),
-		NATSUrl:           	getEnv("OBSP_NATS_URL", "nats://nats:4222"),
-		OTELEndpoint:      	getEnv("OBSP_OTEL_ENDPOINT", "otel-collector:4317"),
-		Environment:       	getEnv("OBSP_ENV", "development"),
+		ServiceName:       serviceName,
+		GRPCPort:          mustInt("OBSP_GRPC_PORT", 50051),
+		HTTPPort:          mustInt("OBSP_HTTP_PORT", 8080),
+		LogLevel:          getEnv("OBSP_LOG_LEVEL", "info"),
+		TenantServiceAddr: getEnv("OBSP_TENANT_ADDR", "tenant:50051"),
+		NATSUrl:           getEnv("OBSP_NATS_URL", "nats://nats:4222"),
+		OTELEndpoint:      getEnv("OBSP_OTEL_ENDPOINT", "otel-collector:4317"),
+		Environment:       getEnv("OBSP_ENV", "development"),
 	}, nil
 }
 
@@ -56,23 +55,22 @@ func MustDuration(key string, fallback time.Duration) time.Duration {
 	return duration
 }
 
-func getEnv(key string, fallback string) string{
-	if v := os.Getenv(key); v != ""{
+func getEnv(key string, fallback string) string {
+	if v := os.Getenv(key); v != "" {
 		return v
 	}
 
 	return fallback
 }
 
-
 func mustInt(key string, fallback int) int {
-	v:=os.Getenv(key);
+	v := os.Getenv(key)
 	if v == "" {
 		return fallback
 	}
 
 	vToInt, err := strconv.Atoi(v)
-	if err!=nil{
+	if err != nil {
 		return fallback
 	}
 

@@ -14,23 +14,23 @@ import (
 )
 
 // Ingest Handler handles incoming telemetry and publishes to NATS JetStream.
-type IngestHandler struct { 
-	ingestv1.UnimplementedIngestServiceServer			// for suppressing unimplemented methods and forward compatibility
-	jets		jetstream.JetStream
-	streamName 	string
-	slog 		*slog.Logger
+type IngestHandler struct {
+	ingestv1.UnimplementedIngestServiceServer // for suppressing unimplemented methods and forward compatibility
+	jets                                      jetstream.JetStream
+	streamName                                string
+	slog                                      *slog.Logger
 }
 
 func NewIngestHanlder(js jetstream.JetStream, strmName string, logger *slog.Logger) *IngestHandler {
 	return &IngestHandler{
-		jets: js,
+		jets:       js,
 		streamName: strmName,
-		slog: logger,
+		slog:       logger,
 	}
 }
 
 // PushMetrics validates and publishes a batch of metrics to NATS.
-func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetricsRequest)(*ingestv1.PushMetricsResponse, error){
+func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetricsRequest) (*ingestv1.PushMetricsResponse, error) {
 	if req.TenantId == "" {
 		return nil, status.Error(codes.InvalidArgument, "tenant_id is empty")
 	}
@@ -50,12 +50,12 @@ func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetr
 	}
 
 	data, err := json.Marshal(event)
-	if err!=nil{
+	if err != nil {
 		return nil, status.Error(codes.Internal, "failed to marshal event")
 	}
 
 	subject := fmt.Sprintf("telemetry.metrics.%s", req.TenantId)
-	if _, err := in.jets.Publish(ctx, subject, data); err!=nil{
+	if _, err := in.jets.Publish(ctx, subject, data); err != nil {
 		in.slog.Error("failed to publish to NATS", "err", err, "subject", subject)
 		return nil, status.Error(codes.Internal, "failed to publish metrics")
 	}
@@ -70,10 +70,10 @@ func (in *IngestHandler) PushMetrics(ctx context.Context, req *ingestv1.PushMetr
 }
 
 // Helps to publish logs into the jetstream
-func (in *IngestHandler) PushLogs(ctx context.Context, req *ingestv1.PushLogsRequest)(*ingestv1.PushLogsResponse, error){
+func (in *IngestHandler) PushLogs(ctx context.Context, req *ingestv1.PushLogsRequest) (*ingestv1.PushLogsResponse, error) {
 	if req.TenantId == "" {
-			in.slog.Error("tenant_id is missing/required", "tenant_id", req.TenantId)
-			return nil, status.Error(codes.InvalidArgument, "tenant_id is missing/required")
+		in.slog.Error("tenant_id is missing/required", "tenant_id", req.TenantId)
+		return nil, status.Error(codes.InvalidArgument, "tenant_id is missing/required")
 	}
 
 	if len(req.Logs) == 0 {
@@ -81,9 +81,9 @@ func (in *IngestHandler) PushLogs(ctx context.Context, req *ingestv1.PushLogsReq
 		return &ingestv1.PushLogsResponse{Accepted: 0}, nil
 	}
 
-	event := map[string]any {
-		"tenant_id": req.TenantId,
-		"logs": req.Logs,
+	event := map[string]any{
+		"tenant_id":   req.TenantId,
+		"logs":        req.Logs,
 		"received_at": time.Now().UTC(),
 	}
 
