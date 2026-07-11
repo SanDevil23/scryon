@@ -75,3 +75,7 @@ proto-check:
 	buf generate proto/ingest/v1
 	git diff --exit-code gen/
 	@echo "✅ generated files are up to date"
+
+## lint: Run golangci-lint across all modules
+lint:
+	./scripts/lint.sh
