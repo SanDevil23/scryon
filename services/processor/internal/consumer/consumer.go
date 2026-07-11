@@ -17,17 +17,17 @@ import (
 type Consumer struct {
 	jets    jetstream.JetStream
 	vWriter *writer.VictoriaWriter
-	lw    	*writer.LokiWriter
+	lw      *writer.LokiWriter
 	log     *slog.Logger
 	workers int
 }
 
 func New(js jetstream.JetStream, wr *writer.VictoriaWriter, loki *writer.LokiWriter, log *slog.Logger, workers int) *Consumer {
 	return &Consumer{
-		jets: js,
+		jets:    js,
 		vWriter: wr,
-		lw: loki,
-		log: log,
+		lw:      loki,
+		log:     log,
 		workers: workers,
 	}
 }
@@ -58,7 +58,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 	msgCh := make(chan jetstream.Msg, c.workers*4)
 
 	g, ctx := errgroup.WithContext(ctx)
-	
+
 	// dispatcher
 
 	g.Go(func() error {
@@ -73,7 +73,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 			}
 
 			select {
-			case <- ctx.Done():
+			case <-ctx.Done():
 				return nil
 			case msgCh <- msg:
 			}
@@ -98,13 +98,13 @@ func (c *Consumer) Start(ctx context.Context) error {
 	// worker pool
 	for i := 0; i < c.workers; i++ {
 		workerID := i
-		g.Go( func() error {
+		g.Go(func() error {
 			for {
 				select {
 				// CASE 1: if a channel is closed
 				case <-ctx.Done():
 					return nil
-				
+
 				// [CASE 2] if a channel receive msg
 				// ok -> tells if the channel is open/closed
 				case msg, ok := <-msgCh:
@@ -130,7 +130,7 @@ func (c *Consumer) Start(ctx context.Context) error {
 
 						continue
 					}
-					
+
 					// positive acknowledgement
 					if err := msg.Ack(); err != nil {
 						c.log.Error(
@@ -159,7 +159,7 @@ func (c *Consumer) process(ctx context.Context, msg jetstream.Msg) error {
 	c.log.Debug("processing message", "subject", subj)
 
 	// adding these so the switch compiles and unknown subjects don't silently swallow future messages:
-	
+
 	switch {
 	case strings.HasPrefix(subj, "telemetry.metrics."):
 		return c.handleMetrics(ctx, msg.Data())
@@ -222,10 +222,9 @@ func (c *Consumer) handleMetrics(ctx context.Context, data []byte) error {
 	return c.vWriter.Write(ctx, event.TenantID, lines)
 }
 
-
 func (c *Consumer) handleLogs(ctx context.Context, data []byte) error {
 	var event logEvent
-	if err:=json.Unmarshal(data, &event); err!=nil{
+	if err := json.Unmarshal(data, &event); err != nil {
 		return err
 	}
 

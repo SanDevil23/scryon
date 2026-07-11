@@ -79,3 +79,7 @@ proto-check:
 ## lint: Run golangci-lint across all modules
 lint:
 	./scripts/lint.sh
+
+## fmt: Format all Go files
+fmt:
+	gofmt -w pkg/ services/

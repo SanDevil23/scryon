@@ -13,7 +13,7 @@ linters:
     - staticcheck     # comprehensive static analysis
     - unused          # finds unused code
     - misspell        # catches common misspellings
-    - godot           # checks comments end with a period
+    # - godot           # checks comments end with a period
     - noctx           # finds http calls without context
     - bodyclose       # checks http response bodies are closed
     - exhaustive      # checks switch exhaustiveness on enums

@@ -12,9 +12,9 @@ import (
 )
 
 type LokiWriter struct {
-	endpoint	string
-	httpClient 	*http.Client
-	log			*slog.Logger
+	endpoint   string
+	httpClient *http.Client
+	log        *slog.Logger
 }
 
 func NewLokiWriter(endpoint string, log *slog.Logger) *LokiWriter {
@@ -28,12 +28,12 @@ func NewLokiWriter(endpoint string, log *slog.Logger) *LokiWriter {
 }
 
 type LogLine struct {
-	Timestamp	time.Time
-	Level 		string
-	Message		string
-	Attributes	map[string]string
-	TraceID		string
-	SpanID		string
+	Timestamp  time.Time
+	Level      string
+	Message    string
+	Attributes map[string]string
+	TraceID    string
+	SpanID     string
 }
 
 // Write pushes a batch of log lines to Loki.
@@ -53,13 +53,13 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 	type lokiPush struct {
 		Streams []lokiStream `json:"streams"`
 	}
-	
+
 	// Group lines by level so each level is a separate Loki stream.
 	// This makes LogQL filtering by level efficient.
 	grouped := make(map[string][]lokiValue)
 	for _, l := range lines {
 		ts := l.Timestamp
-		if ts.IsZero(){
+		if ts.IsZero() {
 			ts = time.Now().UTC()
 		}
 
@@ -69,7 +69,7 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 		}
 
 		lvl := l.Level
-		if lvl == ""{
+		if lvl == "" {
 			lvl = "info"
 		}
 
@@ -83,9 +83,9 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 	streams := make([]lokiStream, 0, len(grouped))
 	for lvl, values := range grouped {
 		streams = append(streams, lokiStream{
-			Stream: map[string]string {
+			Stream: map[string]string{
 				"tenant": tenantID,
-				"level": lvl,
+				"level":  lvl,
 				"source": "observability-platform",
 			},
 			Values: values,
@@ -98,7 +98,7 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 	}
 
 	req, err := http.NewRequestWithContext(
-		ctx, 
+		ctx,
 		http.MethodPost,
 		lw.endpoint+"/loki/api/v1/push",
 		bytes.NewReader(payload),
@@ -114,7 +114,11 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 		return fmt.Errorf("loki push: %w", err)
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			lw.log.Warn("failed to close response body", "err", err)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected loki status: %d", resp.StatusCode)
@@ -127,4 +131,3 @@ func (lw *LokiWriter) Write(ctx context.Context, tenantID string, lines []LogLin
 
 	return nil
 }
-
