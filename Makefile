@@ -83,3 +83,8 @@ lint:
 ## fmt: Format all Go files
 fmt:
 	gofmt -w pkg/ services/
+
+
+unit-tests:
+	go test -race -count=1 -timeout=60s ./services/ingest/...
+	go test -race -count=1 -timeout=60s ./services/processor/...
