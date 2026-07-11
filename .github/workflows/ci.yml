@@ -11,7 +11,7 @@ jobs:
   # ────────────────────────────────────────────
   # Job 1: Lint
   # ────────────────────────────────────────────
-  lint:
+lint:
     name: golangci-lint
     runs-on: ubuntu-latest
     steps:
@@ -35,14 +35,17 @@ jobs:
           go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
           echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
 
+      - name: Install golangci-lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh \
+            | sh -s -- -b $(go env GOPATH)/bin v2.12.2
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
       - name: Check generated proto files are up to date
         run: make proto-check
 
-      - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v8
-        with:
-          version: v2.12.2
-          args: --timeout=5m ./...
+      - name: Lint all modules
+        run: make lint
 
   # ────────────────────────────────────────────
   # Job 2: Unit tests
