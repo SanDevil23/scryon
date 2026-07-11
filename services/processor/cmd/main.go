@@ -11,6 +11,7 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+
 	"github.com/sandevil23/scryon/pkg/config"
 	"github.com/sandevil23/scryon/pkg/logger"
 	"github.com/sandevil23/scryon/services/processor/internal/consumer"
@@ -25,7 +26,10 @@ func main() {
 }
 
 func run() error {
-	cfg, _ := config.LoadBase("processor")
+	cfg, err := config.LoadBase("processor")
+	if err != nil {
+		return fmt.Errorf("failed to load base config: %w", err)
+	}
 	log := logger.New(cfg.LogLevel)
 
 	lokiURL := getEnv("OBSP_LOKI_URL", "http://localhost:3100")

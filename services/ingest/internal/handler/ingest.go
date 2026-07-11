@@ -8,9 +8,10 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
-	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 )
 
 // Ingest Handler handles incoming telemetry and publishes to NATS JetStream.
