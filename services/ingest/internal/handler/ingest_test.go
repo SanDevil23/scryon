@@ -2,16 +2,16 @@ package handler_test
 
 import (
 	"context"
+	"log/slog"
 	"testing"
 	"time"
 
-	"log/slog"
-
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/protobuf/types/known/timestamppb"
+
 	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"github.com/sandevil23/scryon/services/ingest/internal/handler"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestPushMetrics_PublishesToNATS(t *testing.T) {

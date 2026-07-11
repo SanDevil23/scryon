@@ -8,8 +8,9 @@ import (
 	"time"
 
 	"github.com/nats-io/nats.go/jetstream"
-	"github.com/sandevil23/scryon/services/processor/internal/writer"
 	"golang.org/x/sync/errgroup"
+
+	"github.com/sandevil23/scryon/services/processor/internal/writer"
 )
 
 // Consumer pulls messages from NATS JetStream and routes them

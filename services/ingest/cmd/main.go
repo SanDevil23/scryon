@@ -12,12 +12,13 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+
 	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
 	"github.com/sandevil23/scryon/pkg/config"
 	"github.com/sandevil23/scryon/pkg/logger"
 	"github.com/sandevil23/scryon/services/ingest/internal/handler"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
 )
 
 func main() {
