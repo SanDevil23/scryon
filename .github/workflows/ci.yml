@@ -49,7 +49,7 @@ jobs:
   # ────────────────────────────────────────────
   # Job 2: Unit tests
   # ────────────────────────────────────────────
-  test:
+  unit-tests:
     name: Test
     runs-on: ubuntu-latest
     needs: lint
@@ -76,10 +76,10 @@ jobs:
   # ────────────────────────────────────────────
   # Job 3: Integration tests
   # ────────────────────────────────────────────
-  integration:
+  integration-tests:
     name: Integration
     runs-on: ubuntu-latest
-    needs: test
+    needs: unit-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -91,7 +91,7 @@ jobs:
           cache: true
 
       - name: Run integration tests
-        run: go test -tags=integration -race -count=1 -timeout=120s ./...
+        run: make integration
         env:
           TESTCONTAINERS_RYUK_DISABLED: "true"
 
@@ -101,7 +101,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: integration
+    needs: integration-tests
     steps:
       - name: Checkout
         uses: actions/checkout@v4
