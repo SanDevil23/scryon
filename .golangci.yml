@@ -1,23 +1,28 @@
+version: "2"
+
 run:
   timeout: 5m
   go: "1.26"
 
 linters:
+  default: none
   enable:
     - errcheck        # ensures errors are handled
-    - gosimple        # simplification suggestions
     - govet           # reports suspicious constructs
     - ineffassign     # detects unused assignments
     - staticcheck     # comprehensive static analysis
     - unused          # finds unused code
-    - gofmt           # enforces formatting
-    - goimports       # enforces import ordering
     - misspell        # catches common misspellings
     - godot           # checks comments end with a period
     - noctx           # finds http calls without context
     - bodyclose       # checks http response bodies are closed
     - exhaustive      # checks switch exhaustiveness on enums
     - gocritic        # opinionated but useful checks
+
+formatters:
+  enable:
+    - gofmt           # enforces formatting
+    - goimports       # enforces import ordering
 
 linters-settings:
   errcheck:
