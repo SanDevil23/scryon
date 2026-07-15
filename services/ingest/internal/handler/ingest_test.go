@@ -10,10 +10,11 @@ import (
 	"github.com/nats-io/nats.go/jetstream"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
-	"github.com/sandevil23/scryon/services/ingest/internal/handler"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	ingestv1 "github.com/sandevil23/scryon/gen/go/proto/ingest/v1"
+	"github.com/sandevil23/scryon/services/ingest/internal/handler"
 )
 
 // mockPublisher satisfies the publish dependency without real NATS.
@@ -24,7 +25,7 @@ type mockPublisher struct {
 
 type mockMessage struct {
 	subject string
-	data    []byte
+	// data    []byte
 }
 
 // fakeHandler wraps IngestHandler with a mock publisher for unit testing.
