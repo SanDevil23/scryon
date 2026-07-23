@@ -4,7 +4,10 @@ package writer_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
 	"testing"
 	"time"
 
@@ -13,9 +16,11 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-func setupVictoriaMetrics(t *testing.T)(*writer.VictoriaWriter, string, func()){
+// setupVictoriaMetrics starts a real VictoriaMetrics container and returns
+// the writer pointed at it, plus a cleanup function.
+func setupVictoriaMetrics(t *testing.T) (*writer.VictoriaWriter, string, func()) {
 	t.Helper()
-	ctx:=context.Background()
+	ctx := context.Background()
 
 	container, err := testcontainers.GenericContainer(ctx, testcontainers.GenericContainerRequest{
 		ContainerRequest: testcontainers.ContainerRequest{
@@ -28,12 +33,12 @@ func setupVictoriaMetrics(t *testing.T)(*writer.VictoriaWriter, string, func()){
 		},
 		Started: true,
 	})
-	if err!=nil{
+	if err != nil {
 		t.Fatalf("failed to start VictoriaMetrics container: %v", err)
 	}
 
 	host, err := container.Host(ctx)
-	if err!=nil{
+	if err != nil {
 		t.Fatalf("failed to get container host: %v", err)
 	}
 
@@ -45,13 +50,57 @@ func setupVictoriaMetrics(t *testing.T)(*writer.VictoriaWriter, string, func()){
 	baseURL := fmt.Sprintf("http://%s:/%s", host, port.Port())
 	endpoint := baseURL + "api/v1/import/prometheus"
 
-	w:= writer.NewVictoriaWriter(endpoint, noopLogger())
+	w := writer.NewVictoriaWriter(endpoint, noopLogger())
 
-	cleanup := func(){
+	cleanup := func() {
 		if err := container.Terminate(ctx); err != nil {
 			t.Logf("failed to terminate container: %v", err)
 		}
 	}
 
 	return w, baseURL, cleanup
+}
+
+// queryVictoria queries VictoriaMetrics and returns the first value found.
+func queryVictoria(t *testing.T, baseURL, query string) (float64, bool) {
+	t.Helper()
+
+	url := fmt.Sprintf("%s/api/v1/query?query=%s", baseURL, query)
+	resp, err := http.Get(url) //nolint:noctx
+	if err != nil {
+		t.Fatalf("failed to query VictoriaMetrics: %v", err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("failed to read response: %v", err)
+	}
+
+	var result struct {
+		Status string `json:"status"`
+		Data   struct {
+			Result []struct {
+				Value [2]any `json:"value"`
+			} `json:"result"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &result); err != nil {
+		t.Fatalf("failed to parse response: %v", err)
+	}
+
+	if result.Status != "success" || len(result.Data.Result) == 0 {
+		return 0, false
+	}
+
+	// value[1] is the metric value as a string
+	valStr, ok := result.Data.Result[0].Value[1].(string)
+	if !ok {
+		return 0, false
+	}
+
+	var val float64
+	fmt.Sscanf(valStr, "%f", &val)
+	return val, true
 }

@@ -3,8 +3,8 @@
 package writer_test
 
 import (
-	"log/slog"
 	"io"
+	"log/slog"
 )
 
 // noopLogger returns a logger that discards all output.
