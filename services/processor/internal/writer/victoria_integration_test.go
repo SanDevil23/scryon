@@ -104,3 +104,137 @@ func queryVictoria(t *testing.T, baseURL, query string) (float64, bool) {
 	fmt.Sscanf(valStr, "%f", &val)
 	return val, true
 }
+
+// TestVictoriaWriter_WritesMetric verifies a metric written to VictoriaMetrics
+// is immediately queryable via the HTTP API.
+func TestVictoriaWriter_WritesMetric(t *testing.T) {
+	w, baseURL, cleanup := setupVictoriaMetrics(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	err := w.Write(ctx, "tenant-abc", []writer.MetricLine{
+		{
+			Name:      "cpu_usage",
+			Value:     72.5,
+			Labels:    map[string]string{"host": "web-01"},
+			Timestamp: time.Now(),
+		},
+	})
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	// VictoriaMetrics may need a moment to make the metric queryable
+	var val float64
+	var found bool
+	for i := 0; i < 5; i++ {
+		val, found = queryVictoria(t, baseURL, "cpu_usage")
+		if found {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	if !found {
+		t.Fatal("metric not found in VictoriaMetrics after write")
+	}
+	if val != 72.5 {
+		t.Errorf("expected value 72.5, got %f", val)
+	}
+}
+
+// TestVictoriaWriter_TenantLabelIsolation verifies that two tenants writing
+// the same metric name are isolated by the tenant label.
+func TestVictoriaWriter_TenantLabelIsolation(t *testing.T) {
+	w, baseURL, cleanup := setupVictoriaMetrics(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	// tenant-a writes 10.0
+	if err := w.Write(ctx, "tenant-a", []writer.MetricLine{
+		{Name: "mem_usage", Value: 10.0, Timestamp: time.Now()},
+	}); err != nil {
+		t.Fatalf("Write tenant-a failed: %v", err)
+	}
+
+	// tenant-b writes 99.0
+	if err := w.Write(ctx, "tenant-b", []writer.MetricLine{
+		{Name: "mem_usage", Value: 99.0, Timestamp: time.Now()},
+	}); err != nil {
+		t.Fatalf("Write tenant-b failed: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	// query scoped to tenant-a — must not see tenant-b's value
+	val, found := queryVictoria(t, baseURL, `mem_usage{tenant="tenant-a"}`)
+	if !found {
+		t.Fatal("tenant-a metric not found")
+	}
+	if val != 10.0 {
+		t.Errorf("tenant-a: expected 10.0, got %f", val)
+	}
+
+	// query scoped to tenant-b
+	val, found = queryVictoria(t, baseURL, `mem_usage{tenant="tenant-b"}`)
+	if !found {
+		t.Fatal("tenant-b metric not found")
+	}
+	if val != 99.0 {
+		t.Errorf("tenant-b: expected 99.0, got %f", val)
+	}
+}
+
+// TestVictoriaWriter_EmptyBatch verifies no error on empty input.
+func TestVictoriaWriter_EmptyBatch(t *testing.T) {
+	w, _, cleanup := setupVictoriaMetrics(t)
+	defer cleanup()
+
+	err := w.Write(context.Background(), "tenant-abc", []writer.MetricLine{})
+	if err != nil {
+		t.Errorf("expected no error for empty batch, got %v", err)
+	}
+}
+
+// TestVictoriaWriter_MultipleBatch verifies a batch of multiple metrics
+// are all written correctly.
+func TestVictoriaWriter_MultipleBatch(t *testing.T) {
+	w, baseURL, cleanup := setupVictoriaMetrics(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	err := w.Write(ctx, "tenant-abc", []writer.MetricLine{
+		{Name: "cpu_usage", Value: 55.0, Timestamp: time.Now()},
+		{Name: "mem_usage", Value: 80.0, Timestamp: time.Now()},
+		{Name: "disk_usage", Value: 40.0, Timestamp: time.Now()},
+	})
+	if err != nil {
+		t.Fatalf("Write failed: %v", err)
+	}
+
+	time.Sleep(500 * time.Millisecond)
+
+	cases := []struct {
+		query    string
+		expected float64
+	}{
+		{"cpu_usage", 55.0},
+		{"mem_usage", 80.0},
+		{"disk_usage", 40.0},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.query, func(t *testing.T) {
+			val, found := queryVictoria(t, baseURL, tc.query)
+			if !found {
+				t.Fatalf("metric %q not found", tc.query)
+			}
+			if val != tc.expected {
+				t.Errorf("expected %f, got %f", tc.expected, val)
+			}
+		})
+	}
+}
