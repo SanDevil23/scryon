@@ -62,6 +62,27 @@ func setupVictoriaMetrics(t *testing.T) (*writer.VictoriaWriter, string, func())
 	return w, baseURL, cleanup
 }
 
+// flushVictoria forces VictoriaMetrics to flush buffered data to storage,
+// making recently written metrics immediately queryable.
+// Only needed in tests — production queries eventually consistent naturally.
+func flushVictoria(t *testing.T, baseURL string) {
+	t.Helper()
+
+	resp, err := http.Get(baseURL + "/internal/force_flush")
+	if err != nil {
+		t.Fatalf("force flush failed: %v", err)
+	}
+	defer func() {
+		if err := resp.Body.Close(); err != nil {
+			t.Logf("close body: %v", err)
+		}
+	}()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("force flush unexpected status: %d", resp.StatusCode)
+	}
+}
+
 // queryVictoria queries VictoriaMetrics and returns the first value found.
 func queryVictoria(t *testing.T, baseURL, query string) (float64, bool) {
 	t.Helper()
@@ -131,6 +152,9 @@ func TestVictoriaWriter_EndpointReachable(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
+	// flush before querying — no retry loop needed
+	flushVictoria(t, baseURL)
+
 	val, found := queryVictoria(t, baseURL, "test_metric")
 	t.Logf("query result: found=%v val=%f", found, val)
 	if !found {
@@ -159,6 +183,9 @@ func TestVictoriaWriter_WritesMetric(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Write failed: %v", err)
 	}
+
+	// flush before querying — no retry loop needed
+	flushVictoria(t, baseURL)
 
 	// VictoriaMetrics may need a moment to make the metric queryable
 	var val float64
@@ -210,6 +237,8 @@ func TestVictoriaWriter_TenantLabelIsolation(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
+	flushVictoria(t, baseURL)
+
 	// query scoped to tenant-a — must not see tenant-b's value
 	val, found := queryVictoria(t, baseURL, `mem_usage{tenant="tenant-a"}`)
 	if !found {
@@ -259,6 +288,8 @@ func TestVictoriaWriter_MultipleBatch(t *testing.T) {
 
 	time.Sleep(500 * time.Millisecond)
 
+	flushVictoria(t, baseURL)
+	
 	cases := []struct {
 		query    string
 		expected float64
