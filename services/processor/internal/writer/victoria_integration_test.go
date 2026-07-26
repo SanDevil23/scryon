@@ -105,6 +105,38 @@ func queryVictoria(t *testing.T, baseURL, query string) (float64, bool) {
 	return val, true
 }
 
+func TestVictoriaWriter_EndpointReachable(t *testing.T) {
+	_, baseURL, cleanup := setupVictoriaMetrics(t)
+	defer cleanup()
+
+	// manually POST a metric in Prometheus text format
+	body := strings.NewReader("test_metric{tenant=\"t1\"} 42.0\n")
+	resp, err := http.Post(
+		baseURL+"/api/v1/import/prometheus",
+		"text/plain",
+		body,
+	)
+	if err != nil {
+		t.Fatalf("direct POST failed: %v", err)
+	}
+	defer resp.Body.Close()
+
+	respBody, _ := io.ReadAll(resp.Body)
+	t.Logf("POST status: %d body: %s", resp.StatusCode, string(respBody))
+
+	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		t.Errorf("unexpected status: %d", resp.StatusCode)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	val, found := queryVictoria(t, baseURL, "test_metric")
+	t.Logf("query result: found=%v val=%f", found, val)
+	if !found {
+		t.Fatal("manually posted metric not found")
+	}
+}
+
 // TestVictoriaWriter_WritesMetric verifies a metric written to VictoriaMetrics
 // is immediately queryable via the HTTP API.
 func TestVictoriaWriter_WritesMetric(t *testing.T) {
@@ -112,6 +144,8 @@ func TestVictoriaWriter_WritesMetric(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
+
+	t.Logf("VictoriaMetrics base URL: %s", baseURL) // to be removed before merge
 
 	err := w.Write(ctx, "tenant-abc", []writer.MetricLine{
 		{
@@ -130,13 +164,20 @@ func TestVictoriaWriter_WritesMetric(t *testing.T) {
 	var found bool
 	for i := 0; i < 5; i++ {
 		val, found = queryVictoria(t, baseURL, "cpu_usage")
+		t.Logf("attempt %d: found=%v val=%f", i+1, found, val)
 		if found {
 			break
 		}
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 	}
 
 	if !found {
+		// query all metrics to see what's actually in VictoriaMetrics
+		resp, _ := http.Get(baseURL + "/api/v1/query?query={__name__!=\"\"}")
+		body, _ := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		t.Logf("all metrics in VM: %s", string(body))
+
 		t.Fatal("metric not found in VictoriaMetrics after write")
 	}
 	if val != 72.5 {
