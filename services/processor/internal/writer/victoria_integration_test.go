@@ -47,8 +47,8 @@ func setupVictoriaMetrics(t *testing.T) (*writer.VictoriaWriter, string, func())
 		t.Fatalf("failed to get container port: %v", err)
 	}
 
-	baseURL := fmt.Sprintf("http://%s:%s/", host, port.Port())
-	endpoint := baseURL + "api/v1/import/prometheus"
+	baseURL := fmt.Sprintf("http://%s:%s", host, port.Port())
+	endpoint := baseURL + "/api/v1/import/prometheus"
 
 	w := writer.NewVictoriaWriter(endpoint, noopLogger())
 
