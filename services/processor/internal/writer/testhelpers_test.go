@@ -1,4 +1,4 @@
-//go:build integration-tests
+//go:build integration_tests
 
 package writer_test
 
