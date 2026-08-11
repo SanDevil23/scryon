@@ -1,4 +1,4 @@
-//go:build integration-tests
+//go:build integration_tests
 
 package writer_test
 
@@ -29,7 +29,7 @@ func setupVictoriaMetrics(t *testing.T) (*writer.VictoriaWriter, string, func())
 			ExposedPorts: []string{"8428/tcp"},
 			// LatencyOffset defaults to 30s, which shifts instant-query eval time
 			// far enough into the past that just-ingested points aren't visible yet.
-			Cmd:          []string{"--storageDataPath=/storage", "--httpListenAddr=:8428", "--search.latencyOffset=1ms"},
+			Cmd: []string{"--storageDataPath=/storage", "--httpListenAddr=:8428", "--search.latencyOffset=1ms"},
 			WaitingFor: wait.ForHTTP("/health").
 				WithPort("8428/tcp").
 				WithStartupTimeout(30 * time.Second),
